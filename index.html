@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calculadora y Descalculadora</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f7f7f8;
+      color: #000;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .calc-display {
+      font-family: monospace;
+      font-size: 24px;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      min-width: 160px;
+      background: #fafafa;
+      margin-bottom: 10px;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+    }
+    button {
+      border: 1px solid #ddd;
+      background: #f3f4f6;
+      color: #000;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #eef2ff; }
+    .steps, .count {
+      font-family: monospace;
+      background: #fbfbfc;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 100px;
+    }
+    .steps { white-space: pre-wrap; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 200px;
+      gap: 16px;
+    }
+    input[type="number"] {
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Calculadora</h1>
+    <div id="display" class="calc-display">0</div>
+    <input id="startValue" type="number" step="any" value="0" />
+    <button id="setStart">Establecer</button>
+    <button id="reset">Reiniciar</button>
+    <div class="buttons">
+      <button data-op="+1">+1</button>
+      <button data-op="-1">-1</button>
+      <button data-op="*2">*2</button>
+      <button data-op="/2">/2</button>
+      <button data-op="^2">^2</button>
+      <button data-op="!">!</button>
+      <button data-op="*-1">*-1</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Inserte número para descalcular</h2>
+    <input id="targetInput" type="number" step="any" placeholder="Escriba un número..." />
+    <button id="solve">Descalcular</button>
+    <div class="grid-2" style="margin-top: 14px;">
+      <div>
+        <div>Pasos:</div>
+        <div id="steps" class="steps">—</div>
+      </div>
+      <div>
+        <div>Cantidad:</div>
+        <div id="count" class="count">—</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let current = 0;
+const displayEl = document.getElementById('display');
+const startEl = document.getElementById('startValue');
+const setStartBtn = document.getElementById('setStart');
+const resetBtn = document.getElementById('reset');
+const buttons = document.querySelectorAll('button[data-op]');
+
+function render() { displayEl.textContent = String(current); }
+
+function factorial(n) {
+  let r = 1;
+  for (let i = 2; i <= n; i++) r *= i;
+  return r;
+}
+
+function applyOp(op, x) {
+  switch (op) {
+    case '+1': return x + 1;
+    case '-1': return x - 1;
+    case '*2': return x * 2;
+    case '/2': return x / 2;
+    case '^2': return x * x;
+    case '!-1': return null; // seguridad
+    case '!': {
+      if (!Number.isInteger(x) || x < 0 || x > 7) return null;
+      return factorial(x);
+    }
+    case '*-1': return x * -1;
+    default: return null;
+  }
+}
+
+buttons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const op = btn.getAttribute('data-op');
+    const res = applyOp(op, current);
+    if (res !== null) {
+      current = res;
+      render();
+    }
+  });
+});
+
+setStartBtn.addEventListener('click', () => {
+  const val = parseFloat(startEl.value);
+  if (!isNaN(val)) { current = val; render(); }
+});
+
+resetBtn.addEventListener('click', () => { current = 0; startEl.value = 0; render(); });
+render();
+
+// Descalculadora
+const targetInput = document.getElementById('targetInput');
+const solveBtn = document.getElementById('solve');
+const stepsEl = document.getElementById('steps');
+const countEl = document.getElementById('count');
+
+const OPS = ['+1','-1','*2','/2','^2','!','*-1'];
+const MIN_VAL = -10000, MAX_VAL = 10000, MAX_STEPS = 30;
+
+function roundToPrecision(num, precision=2) { return Number(num.toFixed(precision)); }
+
+function neighbors(x) {
+  const result = [];
+  for (const op of OPS) {
+    const y = applyOp(op, x);
+    if (y === null) continue;
+    if (y >= MIN_VAL && y <= MAX_VAL) {
+      result.push({ val: roundToPrecision(y), op });
+    }
+  }
+  return result;
+}
+
+function bfsShortestPath(start, goal) {
+  start = roundToPrecision(start);
+  goal = roundToPrecision(goal);
+  if (start === goal) return [];
+  const queue = [start];
+  const visited = new Set([start]);
+  const parent = new Map();
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    for (const {val:nxt, op} of neighbors(cur)) {
+      if (visited.has(nxt)) continue;
+      visited.add(nxt);
+      parent.set(nxt, {prev:cur, op});
+      if (nxt === goal) return reconstruct(parent, start, goal);
+      queue.push(nxt);
+    }
+  }
+  return null;
+}
+
+function reconstruct(parent, start, goal) {
+  const ops = [];
+  let cur = goal;
+  while (cur !== start) {
+    const info = parent.get(cur);
+    if (!info) break;
+    ops.push(info.op);
+    cur = info.prev;
+  }
+  return ops.reverse();
+}
+
+function describeOps(start, ops) {
+  let x = start;
+  const lines = [];
+  for (let i=0;i<ops.length;i++) {
+    const op = ops[i];
+    const before = x;
+    const after = applyOp(op, x);
+    x = roundToPrecision(after);
+    lines.push(`${i+1}. ${before} ${op} = ${after}`);
+  }
+  return {text: lines.join('\n'), final:x};
+}
+
+solveBtn.addEventListener('click', () => {
+  const goal = parseFloat(targetInput.value);
+  const start = parseFloat(startEl.value);
+  if (isNaN(goal) || isNaN(start)) {
+    stepsEl.textContent = 'Ingrese valores válidos.';
+    countEl.textContent = '—';
+    return;
+  }
+  const path = bfsShortestPath(start, goal);
+  if (!path) {
+    stepsEl.textContent = 'No se encontró secuencia dentro de los límites.';
+    countEl.textContent = '—';
+    return;
+  }
+  const desc = describeOps(start, path);
+  stepsEl.textContent = desc.text || 'Ya está en el objetivo.';
+  countEl.textContent = String(path.length);
+});
+</script>
+</body>
+</html>
