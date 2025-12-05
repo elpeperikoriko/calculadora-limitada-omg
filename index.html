@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Calculator and Uncalculator</title>
+  <title>Calculadora y Descalculadora</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -17,6 +17,25 @@
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 20px;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .lang-toggle {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .lang-toggle:hover {
+      background: #4338ca;
     }
     .calc-display {
       font-family: monospace;
@@ -42,7 +61,9 @@
       font-weight: 600;
       cursor: pointer;
     }
-    button:hover { background: #eef2ff; }
+    button:hover {
+      background: #eef2ff;
+    }
     .steps, .count {
       font-family: monospace;
       background: #fbfbfc;
@@ -51,7 +72,9 @@
       padding: 12px;
       min-height: 100px;
     }
-    .steps { white-space: pre-wrap; }
+    .steps {
+      white-space: pre-wrap;
+    }
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 200px;
@@ -63,16 +86,57 @@
       border: 1px solid #ddd;
       width: 100%;
     }
+    .warning-note {
+      margin-top: 12px;
+      padding: 10px;
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      border-radius: 6px;
+      color: #92400e;
+      font-weight: 600;
+    }
+    .error-note {
+      margin-top: 12px;
+      padding: 10px;
+      background: #fee2e2;
+      border: 1px solid #ef4444;
+      border-radius: 6px;
+      color: #991b1b;
+      font-weight: 600;
+    }
+    .count.error {
+      background: #fee2e2;
+      border-color: #ef4444;
+      color: #991b1b;
+    }
+    .hidden {
+      display: none;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .max-steps-input {
+      width: 80px;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Calculator</h1>
+    <div class="header-row">
+      <h1 data-i18n="calc-title">Calculadora</h1>
+      <button class="lang-toggle" id="langToggle">English</button>
+    </div>
     <div id="display" class="calc-display">0</div>
     <input id="startValue" type="number" step="any" value="0" />
-    <button id="setStart">Set</button>
-    <button id="reset">Reset</button>
-    <button id="langToggle">Español</button>
+    <button id="setStart" data-i18n="set-btn">Establecer</button>
+    <button id="reset" data-i18n="reset-btn">Reiniciar</button>
     <div class="buttons">
       <button data-op="+1">+1</button>
       <button data-op="-1">-1</button>
@@ -85,171 +149,302 @@
   </div>
 
   <div class="card">
-    <h2>Enter number to uncalculate</h2>
-    <input id="targetInput" type="number" step="any" placeholder="Write a number..." />
-    <button id="solve">Uncalculate</button>
+    <h2 data-i18n="descalc-title">Inserte número para descalcular</h2>
+    <div class="settings-row">
+      <label data-i18n="max-steps-label">Pasos máximos:</label>
+      <input id="maxStepsInput" class="max-steps-input" type="number" min="1" max="100" value="60" />
+    </div>
+    <input id="targetInput" type="number" step="any" data-i18n-placeholder="target-placeholder" placeholder="Escriba un número..." />
+    <button id="solve" data-i18n="solve-btn">Descalcular</button>
     <div class="grid-2" style="margin-top: 14px;">
       <div>
-        <div>Steps:</div>
+        <div data-i18n="steps-label">Pasos:</div>
         <div id="steps" class="steps">—</div>
       </div>
       <div>
-        <div>Count:</div>
+        <div data-i18n="count-label">Cantidad:</div>
         <div id="count" class="count">—</div>
+        <div id="errorNote" class="error-note hidden"></div>
       </div>
     </div>
+    <div id="warningNote" class="warning-note hidden"></div>
   </div>
 
-<script>
-let current = 0;
-const displayEl = document.getElementById('display');
-const startEl = document.getElementById('startValue');
-const setStartBtn = document.getElementById('setStart');
-const resetBtn = document.getElementById('reset');
-const buttons = document.querySelectorAll('button[data-op]');
-const langBtn = document.getElementById('langToggle');
+  <script>
+    // Sistema de traducciones
+    const translations = {
+      es: {
+        'calc-title': 'Calculadora',
+        'set-btn': 'Establecer',
+        'reset-btn': 'Reiniciar',
+        'descalc-title': 'Inserte número para descalcular',
+        'max-steps-label': 'Pasos máximos:',
+        'target-placeholder': 'Escriba un número...',
+        'solve-btn': 'Descalcular',
+        'steps-label': 'Pasos:',
+        'count-label': 'Cantidad:',
+        'error-invalid': 'Ingrese valores válidos.',
+        'error-no-path': 'No se encontró secuencia dentro de los límites.',
+        'error-not-calculable': 'No calculable',
+        'success-exact': 'Ya está en el objetivo.',
+        'warning-approximation': "Can't be made exactly with these operations"
+      },
+      en: {
+        'calc-title': 'Calculator',
+        'set-btn': 'Set',
+        'reset-btn': 'Reset',
+        'descalc-title': 'Enter number to uncalculate',
+        'max-steps-label': 'Max steps:',
+        'target-placeholder': 'Enter a number...',
+        'solve-btn': 'Uncalculate',
+        'steps-label': 'Steps:',
+        'count-label': 'Count:',
+        'error-invalid': 'Please enter valid values.',
+        'error-no-path': 'No sequence found within limits.',
+        'error-not-calculable': 'Not calculable',
+        'success-exact': 'Already at target.',
+        'warning-approximation': "Can't be made exactly with these operations"
+      }
+    };
 
-function render() { displayEl.textContent = String(current); }
+    let currentLang = 'es';
 
-function factorial(n) {
-  let r = 1;
-  for (let i = 2; i <= n; i++) r *= i;
-  return r;
-}
-
-function applyOp(op, x) {
-  switch (op) {
-    case '+1': return x + 1;
-    case '-1': return x - 1;
-    case '*2': return x * 2;
-    case '/2': return x / 2;
-    case '^2': return x * x;
-    case '!-1': return null; // safety
-    case '!': {
-      if (!Number.isInteger(x) || x < 0 || x > 7) return null;
-      return factorial(x);
+    function translate() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[currentLang][key]) {
+          el.textContent = translations[currentLang][key];
+        }
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (translations[currentLang][key]) {
+          el.placeholder = translations[currentLang][key];
+        }
+      });
     }
-    case '*-1': return x * -1;
-    default: return null;
-  }
-}
 
-buttons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const op = btn.getAttribute('data-op');
-    const res = applyOp(op, current);
-    if (res !== null) {
-      current = res;
+    document.getElementById('langToggle').addEventListener('click', () => {
+      currentLang = currentLang === 'es' ? 'en' : 'es';
+      document.getElementById('langToggle').textContent = currentLang === 'es' ? 'English' : 'Español';
+      translate();
+    });
+
+    // Calculadora
+    let current = 0;
+    const displayEl = document.getElementById('display');
+    const startEl = document.getElementById('startValue');
+    const setStartBtn = document.getElementById('setStart');
+    const resetBtn = document.getElementById('reset');
+    const buttons = document.querySelectorAll('button[data-op]');
+
+    function render() {
+      displayEl.textContent = String(current);
+    }
+
+    function factorial(n) {
+      let r = 1;
+      for (let i = 2; i <= n; i++) r *= i;
+      return r;
+    }
+
+    function applyOp(op, x) {
+      switch (op) {
+        case '+1': return x + 1;
+        case '-1': return x - 1;
+        case '*2': return x * 2;
+        case '/2': return x / 2;
+        case '^2': return x * x;
+        case '!': {
+          if (!Number.isInteger(x) || x < 0 || x > 7) return null;
+          return factorial(x);
+        }
+        case '*-1': return x * -1;
+        default: return null;
+      }
+    }
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const op = btn.getAttribute('data-op');
+        const res = applyOp(op, current);
+        if (res !== null) {
+          current = res;
+          render();
+        }
+      });
+    });
+
+    setStartBtn.addEventListener('click', () => {
+      const val = parseFloat(startEl.value);
+      if (!isNaN(val)) {
+        current = val;
+        render();
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      current = 0;
+      startEl.value = 0;
       render();
+    });
+
+    render();
+
+    // Descalculadora
+    const targetInput = document.getElementById('targetInput');
+    const maxStepsInput = document.getElementById('maxStepsInput');
+    const solveBtn = document.getElementById('solve');
+    const stepsEl = document.getElementById('steps');
+    const countEl = document.getElementById('count');
+    const warningNote = document.getElementById('warningNote');
+    const errorNote = document.getElementById('errorNote');
+
+    const OPS = ['+1','-1','*2','/2','^2','!','*-1'];
+    const MIN_VAL = -10000, MAX_VAL = 10000;
+    const EPSILON = 1e-9;
+    const MAX_STATES = 100000;
+
+    function almostEqual(a, b) {
+      return Math.abs(a - b) < EPSILON;
     }
-  });
-});
 
-setStartBtn.addEventListener('click', () => {
-  const val = parseFloat(startEl.value);
-  if (!isNaN(val)) { current = val; render(); }
-});
-
-resetBtn.addEventListener('click', () => { current = 0; startEl.value = 0; render(); });
-render();
-
-// Uncalculator
-const targetInput = document.getElementById('targetInput');
-const solveBtn = document.getElementById('solve');
-const stepsEl = document.getElementById('steps');
-const countEl = document.getElementById('count');
-
-const OPS = ['+1','-1','*2','/2','^2','!','*-1'];
-const MIN_VAL = -10000, MAX_VAL = 10000, MAX_STEPS = 30;
-
-function roundToPrecision(num, precision=2) { return Number(num.toFixed(precision)); }
-
-function neighbors(x) {
-  const result = [];
-  for (const op of OPS) {
-    const y = applyOp(op, x);
-    if (y === null) continue;
-    if (y >= MIN_VAL && y <= MAX_VAL) {
-      result.push({ val: roundToPrecision(y), op });
+    function normalizeKey(num) {
+      // Redondear a 10 decimales para evitar problemas de punto flotante en el hash
+      return Math.round(num * 1e10) / 1e10;
     }
-  }
-  return result;
-}
 
-function bfsShortestPath(start, goal) {
-  start = roundToPrecision(start);
-  goal = roundToPrecision(goal);
-  if (start === goal) return [];
-  const queue = [start];
-  const visited = new Set([start]);
-  const parent = new Map();
-  while (queue.length > 0) {
-    const cur = queue.shift();
-    for (const {val:nxt, op} of neighbors(cur)) {
-      if (visited.has(nxt)) continue;
-      visited.add(nxt);
-      parent.set(nxt, {prev:cur, op});
-      if (nxt === goal) return reconstruct(parent, start, goal);
-      queue.push(nxt);
+    function neighbors(x) {
+      const result = [];
+      for (const op of OPS) {
+        const y = applyOp(op, x);
+        if (y === null) continue;
+        if (y >= MIN_VAL && y <= MAX_VAL && isFinite(y)) {
+          result.push({ val: y, op });
+        }
+      }
+      return result;
     }
-  }
-  return null;
-}
 
-function reconstruct(parent, start, goal) {
-  const ops = [];
-  let cur = goal;
-  while (cur !== start) {
-    const info = parent.get(cur);
-    if (!info) break;
-    ops.push(info.op);
-    cur = info.prev;
-  }
-  return ops.reverse();
-}
+    function bfsShortestPath(start, goal, maxDepth) {
+      if (almostEqual(start, goal)) return { path: [], finalValue: start };
 
-function describeOps(start, ops) {
-  let x = start;
-  const lines = [];
-  for (let i=0;i<ops.length;i++) {
-    const op = ops[i];
-    const before = x;
-    const after = applyOp(op, x);
-    x = roundToPrecision(after);
-    lines.push(`${i+1}. ${before} ${op} = ${after}`);
-  }
-  return {text: lines.join('\n'), final:x};
-}
+      const queue = [{ value: start, depth: 0 }];
+      const visited = new Map([[normalizeKey(start), start]]);
+      const parent = new Map();
+      let statesExplored = 0;
 
-solveBtn.addEventListener('click', () => {
-  const goal = parseFloat(targetInput.value);
-  const start = parseFloat(startEl.value);
-  if (isNaN(goal) || isNaN(start)) {
-    stepsEl.textContent = 'Enter valid values.';
-    countEl.textContent = '—';
-    return;
-  }
-  const path = bfsShortestPath(start, goal);
-  if (!path) {
-    stepsEl.textContent = 'No sequence found within limits.';
-    countEl.textContent = '—';
-    return;
-  }
-  const desc = describeOps(start, path);
-  stepsEl.textContent = desc.text || 'Already at the target.';
-  countEl.textContent = String(path.length);
+      while (queue.length > 0) {
+        const { value: cur, depth } = queue.shift();
+        
+        // Límite de profundidad
+        if (depth >= maxDepth) continue;
+        
+        // Límite de estados
+        if (++statesExplored > MAX_STATES) {
+          return null;
+        }
+        
+        for (const {val:nxt, op} of neighbors(cur)) {
+          const nxtKey = normalizeKey(nxt);
+          
+          if (visited.has(nxtKey)) continue;
+          
+          visited.set(nxtKey, nxt);
+          parent.set(nxtKey, {prev: cur, op});
+          
+          if (almostEqual(nxt, goal)) {
+            return { path: reconstruct(parent, start, nxt, visited), finalValue: nxt };
+          }
+          
+          queue.push({ value: nxt, depth: depth + 1 });
+        }
+      }
+      
+      return null;
+    }
 
-  // Check approximation
-  if (desc.final !== roundToPrecision(goal)) {
-    stepsEl.textContent += "\n*approximation since the number cannot be reached*";
-  }
-});
+    function reconstruct(parent, start, goal, visited) {
+      const ops = [];
+      let curKey = normalizeKey(goal);
+      const startKey = normalizeKey(start);
+      
+      while (curKey !== startKey) {
+        const info = parent.get(curKey);
+        if (!info) break;
+        ops.push(info.op);
+        curKey = normalizeKey(info.prev);
+      }
+      
+      return ops.reverse();
+    }
 
-// Language toggle (simple demo)
-langBtn.addEventListener('click', () => {
-  if (langBtn.textContent === "Español") {
-    document.querySelector("h1").textContent = "Calculadora";
-    setStartBtn.textContent = "Establecer";
-    resetBtn.textContent = "Reiniciar";
-    langBtn.textContent = "English";
-    document.querySelector("h2").textContent = "Inserte número para des
+    function formatNumber(num) {
+      // Mostrar hasta 6 decimales, pero eliminar ceros innecesarios
+      if (Number.isInteger(num)) return num.toString();
+      return num.toFixed(6).replace(/\.?0+$/, '');
+    }
+
+    function describeOps(start, ops) {
+      let x = start;
+      const lines = [];
+      
+      for (let i = 0; i < ops.length; i++) {
+        const op = ops[i];
+        const before = x;
+        const after = applyOp(op, x);
+        x = after;
+        lines.push(`${i+1}. ${formatNumber(before)} ${op} = ${formatNumber(after)}`);
+      }
+      
+      return { text: lines.join('\n'), final: x };
+    }
+
+    solveBtn.addEventListener('click', () => {
+      const goalRaw = parseFloat(targetInput.value);
+      const start = parseFloat(startEl.value);
+      const maxSteps = parseInt(maxStepsInput.value) || 60;
+      
+      warningNote.classList.add('hidden');
+      errorNote.classList.add('hidden');
+      countEl.classList.remove('error');
+      
+      if (isNaN(goalRaw) || isNaN(start)) {
+        stepsEl.textContent = translations[currentLang]['error-invalid'];
+        countEl.textContent = '—';
+        return;
+      }
+
+      // Mostrar indicador de carga
+      stepsEl.textContent = currentLang === 'es' ? 'Calculando...' : 'Calculating...';
+      countEl.textContent = '—';
+      
+      // Usar setTimeout para permitir que el UI se actualice
+      setTimeout(() => {
+        const result = bfsShortestPath(start, goalRaw, maxSteps);
+        
+        if (!result) {
+          stepsEl.textContent = translations[currentLang]['error-no-path'];
+          countEl.textContent = '>' + maxSteps;
+          countEl.classList.add('error');
+          errorNote.textContent = translations[currentLang]['error-not-calculable'];
+          errorNote.classList.remove('hidden');
+          warningNote.textContent = translations[currentLang]['warning-approximation'];
+          warningNote.classList.remove('hidden');
+          return;
+        }
+
+        const desc = describeOps(start, result.path);
+        stepsEl.textContent = desc.text || translations[currentLang]['success-exact'];
+        countEl.textContent = String(result.path.length);
+
+        // Verificar si el resultado final es realmente el objetivo
+        if (!almostEqual(result.finalValue, goalRaw)) {
+          warningNote.textContent = translations[currentLang]['warning-approximation'];
+          warningNote.classList.remove('hidden');
+        }
+      }, 10);
+    });
+  </script>
+</body>
+</html>
